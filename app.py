@@ -1,6 +1,7 @@
 import streamlit as st
 import pandas as pd
 import plotly.express as px
+import altair as alt
 from statsmodels.tsa.holtwinters import ExponentialSmoothing
 
 st.title("AIStockPredict MVP – Sales & Inventory Forecast")
@@ -54,21 +55,23 @@ if uploaded_file is not None:
                 st.dataframe(forecast_df)
                 
                 # Interactive chart
-                fig = px.line(
-                    weekly.reset_index(),
-                    x='Week',
-                    y='Sales',
-                    title='Weekly Sales + Forecast',
-                    labels={'Sales': 'Actual Sales ($)', 'Week': 'Date'}
-                )
-                fig.add_scatter(
-                    x=forecast_df['Date'],
-                    y=forecast_df['Predicted Sales ($)'],
-                    mode='lines',
-                    name='Forecast',
-                    line=dict(dash='dash', color='red')
-                )
-                st.plotly_chart(fig)
+             chart_data = pd.concat([
+    weekly.reset_index().assign(Type='Historical'),
+    forecast_df.assign(Type='Forecast').rename(columns={'Date': 'Week', 'Predicted Sales ($)': 'Sales'})
+])
+
+chart = alt.Chart(chart_data).mark_line().encode(
+    x='Week:T',
+    y='Sales:Q',
+    color='Type:N',
+    tooltip=['Week', 'Sales', 'Type']
+).properties(
+    title='Weekly Sales & Forecast',
+    width=700,
+    height=400
+)
+
+st.altair_chart(chart, use_container_width=True)                               
                 
     except Exception as e:
         st.error(f"Error processing your file: {str(e)}")
