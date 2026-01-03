@@ -23,24 +23,33 @@ if uploaded_file is not None:
         st.write("Your weekly sales preview (last 10 weeks):")
         st.dataframe(weekly.tail(10))
         
-        if st.button("Generate Forecast (next 8 weeks)"):
-            with st.spinner("Training Prophet model..."):
-                prophet_df = weekly.rename(columns={'Week': 'ds', 'Sales': 'y'})
-                m = Prophet()
-                m.fit(prophet_df)
-                future = m.make_future_dataframe(periods=8, freq='W')
-                forecast = m.predict(future)
-                
-                st.success("Forecast ready!")
-                st.write("Predicted sales for next 8 weeks:")
-                st.dataframe(forecast[['ds', 'yhat', 'yhat_lower', 'yhat_upper']].tail(8))
-                
-                # Interactive chart
-                fig = px.line(forecast, x='ds', y='yhat', 
-                              title='Weekly Sales Forecast',
-                              labels={'ds': 'Date', 'yhat': 'Predicted Sales ($)'})
-                fig.add_scatter(x=prophet_df['ds'], y=prophet_df['y'], mode='lines', name='Historical Sales')
-                st.plotly_chart(fig)
+       # ... (keep everything until the forecast block)
+
+if st.button("Generate Forecast (next 8 weeks)"):
+    with st.spinner("Training simple model..."):
+        from statsmodels.tsa.holtwinters import ExponentialSmoothing
+        
+        # Prepare data
+        weekly.set_index('Week', inplace=True)
+        weekly.index = pd.to_datetime(weekly.index)
+        
+        # Simple Holt-Winters (good for trends + seasonality)
+        model = ExponentialSmoothing(weekly['Sales'], seasonal='add', seasonal_periods=4).fit()
+        
+        forecast = model.forecast(8)
+        
+        # Create forecast df for display/chart
+        forecast_dates = pd.date_range(start=weekly.index[-1] + pd.Timedelta(weeks=1), periods=8, freq='W')
+        forecast_df = pd.DataFrame({'ds': forecast_dates, 'yhat': forecast.values})
+        
+        st.success("Forecast ready!")
+        st.write("Predicted sales for next 8 weeks:")
+        st.dataframe(forecast_df)
+        
+        # Chart
+        fig = px.line(weekly.reset_index(), x='Week', y='Sales', title='Weekly Sales + Forecast')
+        fig.add_scatter(x=forecast_df['ds'], y=forecast_df['yhat'], mode='lines', name='Forecast', line=dict(dash='dash'))
+        st.plotly_chart(fig)
                 
     except Exception as e:
         st.error(f"Error processing file: {e}")
