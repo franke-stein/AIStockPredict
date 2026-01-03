@@ -47,7 +47,3 @@ if uploaded_file is not None:
         st.error(f"Error processing file: {e}")
         st.info("Tip: Make sure the CSV has 'Order Date' and 'Sales' columns. Try the format fix above.")
 
-# Render.com port binding (critical!)
-if __name__ == '__main__':
-    port = int(os.environ.get("PORT", 8501))
-    st.run(server_port=port, server_address="0.0.0.0")
