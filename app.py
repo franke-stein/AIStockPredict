@@ -9,7 +9,6 @@ st.title("AIStockPredict MVP – Sales & Inventory Forecast")
 st.markdown("""
 Upload your sales CSV file.  
 We forecast **future sales revenue** to help estimate inventory needs.  
-Works with most retail datasets (Superstore, Walmart, etc.)
 """)
 
 uploaded_file = st.file_uploader("Upload sales CSV", type="csv")
