@@ -8,7 +8,7 @@ st.title("AIStockPredict MVP – Sales & Inventory Forecast")
 
 st.markdown("""
 Upload your sales CSV file.  
-We forecast **future sales revenue** to help estimate inventory needs.  
+We forecast **future sales revenue or quantity** to help estimate inventory needs.  
 """)
 
 uploaded_file = st.file_uploader("Upload sales CSV", type="csv")
@@ -34,20 +34,25 @@ if uploaded_file is not None:
                 ", ".join(possible_date_names)
             )
         
-        # === Automatically detect sales/revenue column ===
+        # === Automatically detect sales/quantity/revenue column ===
         sales_col = None
+        is_quantity = False
         possible_sales_names = [
             'Sales', 'sales', 'Revenue', 'revenue', 'Weekly_Sales', 'weekly_sales',
-            'SaleAmount', 'Amount', 'TotalSales', 'Profit'
+            'SaleAmount', 'Amount', 'TotalSales', 'Profit',
+            'Quantity', 'quantity', 'Units', 'units', 'Qty', 'qty'
         ]
         for col in possible_sales_names:
             if col in df.columns:
                 sales_col = col
+                # Check if it's likely quantity (for labeling)
+                if 'quantity' in col.lower() or 'units' in col.lower() or 'qty' in col.lower():
+                    is_quantity = True
                 break
         
         if sales_col is None:
             raise ValueError(
-                "No sales/revenue column found. Please ensure your CSV has one of these columns: " +
+                "No sales/revenue/quantity column found. Please ensure your CSV has one of these columns: " +
                 ", ".join(possible_sales_names)
             )
         
@@ -65,7 +70,9 @@ if uploaded_file is not None:
         weekly = df.groupby('Week')[sales_col].sum().reset_index()
         weekly = weekly.sort_values('Week')
         
-        st.subheader("Your Weekly Sales Preview (last 10 weeks)")
+        label_unit = "Units" if is_quantity else "Sales ($)"
+        
+        st.subheader(f"Your Weekly {label_unit} Preview (last 10 weeks)")
         st.dataframe(weekly.tail(10))
         
         if st.button("Generate Forecast (next 8 weeks)"):
@@ -83,16 +90,16 @@ if uploaded_file is not None:
                 
                 st.success("Forecast ready!")
                 
-                st.subheader("Predicted Sales for Next 8 Weeks")
+                st.subheader(f"Predicted {label_unit} for Next 8 Weeks")
                 st.dataframe(
                     forecast[['ds', 'yhat', 'yhat_lower', 'yhat_upper']].tail(8)
                     .rename(columns={
                         'ds': 'Week Starting',
-                        'yhat': 'Predicted Sales',
+                        'yhat': f'Predicted {label_unit}',
                         'yhat_lower': 'Lower Bound',
                         'yhat_upper': 'Upper Bound'
                     })
-                    .round(2)
+                    .round(2 if is_quantity else 0)  # Round to integers for quantity, decimals for sales
                 )
                 
                 # Interactive Plotly chart
@@ -100,14 +107,14 @@ if uploaded_file is not None:
                     forecast,
                     x='ds',
                     y='yhat',
-                    title='Weekly Sales Forecast',
-                    labels={'ds': 'Date', 'yhat': 'Predicted Sales ($)'}
+                    title=f'Weekly {label_unit} Forecast',
+                    labels={'ds': 'Date', 'yhat': f'{label_unit}'}
                 )
                 fig.add_scatter(
                     x=prophet_df['ds'],
                     y=prophet_df['y'],
                     mode='lines',
-                    name='Historical Sales',
+                    name='Historical',
                     line=dict(color='blue')
                 )
                 fig.update_layout(showlegend=True)
@@ -117,10 +124,9 @@ if uploaded_file is not None:
         st.error(f"Error processing file: {str(e)}")
         st.info("""
         **Common fixes:**
-        • Make sure your CSV has a date column and a sales/revenue column
+        • Make sure your CSV has a date column and a sales/revenue/quantity column
         • Date format can be MM/DD/YYYY, DD/MM/YYYY or YYYY-MM-DD
         • Try downloading a clean dataset from Kaggle (Superstore or Walmart)
         • First row should be headers (not blank or merged cells)
         • If problem persists, share the first few column names from your CSV
         """)
-
