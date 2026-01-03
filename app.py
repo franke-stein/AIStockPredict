@@ -1,8 +1,6 @@
 import streamlit as st
 import pandas as pd
-import plotly.express as px
 import altair as alt
-from statsmodels.tsa.holtwinters import ExponentialSmoothing
 
 st.title("AIStockPredict MVP – Sales & Inventory Forecast")
 
@@ -26,11 +24,13 @@ if uploaded_file is not None:
         
         if st.button("Generate Forecast (next 8 weeks)"):
             with st.spinner("Training simple model..."):
-                # Prepare data for statsmodels (index must be datetime)
+                # Prepare data for statsmodels
                 weekly.set_index('Week', inplace=True)
                 weekly.index = pd.to_datetime(weekly.index)
                 
-                # Simple Holt-Winters Exponential Smoothing (trend + seasonality)
+                from statsmodels.tsa.holtwinters import ExponentialSmoothing
+                
+                # Holt-Winters Exponential Smoothing
                 model = ExponentialSmoothing(
                     weekly['Sales'],
                     seasonal='add',
@@ -39,45 +39,40 @@ if uploaded_file is not None:
                 
                 forecast = model.forecast(8)
                 
-                # Create forecast DataFrame for display
+                # Create forecast DataFrame
                 forecast_dates = pd.date_range(
                     start=weekly.index[-1] + pd.Timedelta(weeks=1),
                     periods=8,
                     freq='W'
                 )
                 forecast_df = pd.DataFrame({
-                    'Date': forecast_dates,
-                    'Predicted Sales ($)': forecast.values
+                    'Week': forecast_dates,
+                    'Sales': forecast.round(2).values,
+                    'Type': 'Forecast'
                 })
                 
-                st.success("Forecast ready!")
-                st.write("Predicted sales for next 8 weeks:")
-                st.dataframe(forecast_df)
+                # Combine historical + forecast for chart
+                historical_df = weekly.reset_index().assign(Type='Historical')
+                chart_data = pd.concat([historical_df, forecast_df], ignore_index=True)
                 
-                # Interactive chart
-             chart_data = pd.concat([
-    weekly.reset_index().assign(Type='Historical'),
-    forecast_df.assign(Type='Forecast').rename(columns={'Date': 'Week', 'Predicted Sales ($)': 'Sales'})
-])
-
-chart = alt.Chart(chart_data).mark_line().encode(
-    x='Week:T',
-    y='Sales:Q',
-    color='Type:N',
-    tooltip=['Week', 'Sales', 'Type']
-).properties(
-    title='Weekly Sales & Forecast',
-    width=700,
-    height=400
-)
-
-st.altair_chart(chart, use_container_width=True)                               
+                # Create interactive Altair chart
+                chart = alt.Chart(chart_data).mark_line().encode(
+                    x='Week:T',
+                    y='Sales:Q',
+                    color='Type:N',
+                    tooltip=['Week', 'Sales', 'Type']
+                ).properties(
+                    title='Weekly Sales & Forecast',
+                    width=700,
+                    height=400
+                )
+                
+                st.success("Forecast ready!")
+                st.write("**Predicted sales for next 8 weeks:**")
+                st.dataframe(forecast_df[['Week', 'Sales']])
+                
+                st.altair_chart(chart, use_container_width=True)
                 
     except Exception as e:
-        st.error(f"Error processing your file: {str(e)}")
-        st.info("""
-        Common fixes:
-        • Make sure your CSV has columns 'Order Date' and 'Sales'
-        • Date format should be DD/MM/YYYY (common in Superstore dataset)
-        • Try downloading a fresh copy from Kaggle
-        """)
+        st.error(f"Error processing file: {str(e)}")
+        st.info("Tips: Ensure CSV has 'Order Date' (DD/MM/YYYY) and 'Sales' columns. Try a fresh Kaggle download.")
