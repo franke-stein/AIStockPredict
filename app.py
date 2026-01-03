@@ -1,4 +1,3 @@
-%%writefile app.py
 import streamlit as st
 import pandas as pd
 from prophet import Prophet
@@ -14,7 +13,7 @@ if uploaded_file is not None:
     try:
         df = pd.read_csv(uploaded_file)
         
-        # FIXED: Handle DD/MM/YYYY format properly
+        # Handle DD/MM/YYYY format properly (common in Superstore dataset)
         df['Order Date'] = pd.to_datetime(df['Order Date'], format='%d/%m/%Y', dayfirst=True)
         
         # Aggregate weekly total sales
@@ -45,4 +44,4 @@ if uploaded_file is not None:
                 
     except Exception as e:
         st.error(f"Error processing file: {e}")
-        st.info("Tip: Make sure the CSV has 'Order Date' and 'Sales' columns. Try the format fix above.")
+        st.info("Tip: Make sure the CSV has 'Order Date' (DD/MM/YYYY) and 'Sales' columns.")
